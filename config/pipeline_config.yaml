@@ -1,0 +1,8 @@
+reference_date: "2026-07-31"
+
+paths:
+  raw: "data/raw"
+  trusted: "data/trusted"
+  curated: "data/curated"
+  rejected: "data/rejected"
+  audiences: "data/audiences"
