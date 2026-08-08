@@ -99,6 +99,20 @@ EXPECTED_FIELDS = {
     "updated_at",
 }
 
+NEWER_DUPLICATE_COUNT = 120
+EXACT_DUPLICATE_COUNT = 30
+
+FUTURE_BIRTH_DATE_COUNT = 15
+AGE_OVER_100_COUNT = 15
+FUTURE_REGISTRATION_DATE_COUNT = 20
+INVALID_STATUS_COUNT = 15
+MISSING_UPDATED_AT_COUNT = 10
+
+MISSING_NAME_COUNT = 35
+INVALID_EMAIL_COUNT = 45
+MISSING_EMAIL_COUNT = 25
+UNKNOWN_STATE_COUNT = 20
+
 # Faker / random configuration
 fake = Faker("pt_BR")
 
@@ -229,7 +243,6 @@ def generate_base_customer(customer_number):
 
     return customer
 
-
 def generate_base_customers():
     customers = []
 
@@ -238,6 +251,96 @@ def generate_base_customers():
         customers.append(customer)
 
     return customers
+
+# ids selection
+def select_ids(available_ids, count):
+    selected_ids = set(
+        random.sample(available_ids, count)
+    )
+
+    remaining_ids = [
+        customer_id
+        for customer_id in available_ids
+        if customer_id not in selected_ids
+    ]
+
+    return selected_ids, remaining_ids
+
+# scenario selection
+def select_scenario_ids(customers):
+    available_ids = [
+        customer["customer_id"]
+        for customer in customers
+    ]
+
+    newer_duplicate_ids, available_ids = select_ids(
+        available_ids,
+        NEWER_DUPLICATE_COUNT
+    )
+
+    exact_duplicate_ids, available_ids = select_ids(
+        available_ids,
+        EXACT_DUPLICATE_COUNT
+    )
+
+    future_birth_date_ids, available_ids = select_ids(
+        available_ids,
+        FUTURE_BIRTH_DATE_COUNT
+    )
+
+    age_over_100_ids, available_ids = select_ids(
+        available_ids,
+        AGE_OVER_100_COUNT
+    )
+
+    future_registration_date_ids, available_ids = select_ids(
+        available_ids,
+        FUTURE_REGISTRATION_DATE_COUNT
+    )
+
+    invalid_status_ids, available_ids = select_ids(
+        available_ids,
+        INVALID_STATUS_COUNT
+    )
+
+    missing_updated_at_ids, available_ids = select_ids(
+        available_ids,
+        MISSING_UPDATED_AT_COUNT
+    )
+
+    missing_name_ids, available_ids = select_ids(
+        available_ids,
+        MISSING_NAME_COUNT
+    )
+
+    invalid_email_ids, available_ids = select_ids(
+        available_ids,
+        INVALID_EMAIL_COUNT
+    )
+
+    missing_email_ids, available_ids = select_ids(
+        available_ids,
+        MISSING_EMAIL_COUNT
+    )
+
+    unknown_state_ids, available_ids = select_ids(
+        available_ids,
+        UNKNOWN_STATE_COUNT
+    )
+
+    return {
+        "newer_duplicates": newer_duplicate_ids,
+        "exact_duplicates": exact_duplicate_ids,
+        "future_birth_date": future_birth_date_ids,
+        "age_over_100": age_over_100_ids,
+        "future_registration_date": future_registration_date_ids,
+        "invalid_status": invalid_status_ids,
+        "missing_updated_at": missing_updated_at_ids,
+        "missing_name": missing_name_ids,
+        "invalid_email": invalid_email_ids,
+        "missing_email": missing_email_ids,
+        "unknown_state": unknown_state_ids,
+    }
 
 # validation helpers
 def calculate_age(birth_date):
@@ -563,11 +666,48 @@ def validate_base_distributions(customers):
         tolerance=0.05,
     )
 
+def validate_scenario_selection(scenario_ids):
+    expected_counts = {
+        "newer_duplicates": NEWER_DUPLICATE_COUNT,
+        "exact_duplicates": EXACT_DUPLICATE_COUNT,
+        "future_birth_date": FUTURE_BIRTH_DATE_COUNT,
+        "age_over_100": AGE_OVER_100_COUNT,
+        "future_registration_date": FUTURE_REGISTRATION_DATE_COUNT,
+        "invalid_status": INVALID_STATUS_COUNT,
+        "missing_updated_at": MISSING_UPDATED_AT_COUNT,
+        "missing_name": MISSING_NAME_COUNT,
+        "invalid_email": INVALID_EMAIL_COUNT,
+        "missing_email": MISSING_EMAIL_COUNT,
+        "unknown_state": UNKNOWN_STATE_COUNT,
+    }
+
+    for scenario, expected_count in expected_counts.items():
+        assert len(scenario_ids[scenario]) == expected_count, (
+            f"{scenario}: expected {expected_count} IDs, "
+            f"got {len(scenario_ids[scenario])}"
+        )
+
+    all_selected_ids = [
+    customer_id
+    for ids in scenario_ids.values()
+    for customer_id in ids
+    ]
+
+    assert len(all_selected_ids) == len(set(all_selected_ids)), (
+        "Scenario IDs overlap"
+    )
+
 # orchestration
 def main():
     customers = generate_base_customers()
+
     validate_base_customers(customers)
+
     validate_base_distributions(customers)
+
+    scenario_ids = select_scenario_ids(customers)
+
+    validate_scenario_selection(scenario_ids)
 
 if __name__ == "__main__":
     main()
