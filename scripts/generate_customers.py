@@ -413,6 +413,20 @@ def build_final_customer_dataset(customers, newer_duplicates, exact_duplicates, 
     final_customers = customers + newer_duplicates + exact_duplicates + invalid_customer_records
 
     return final_customers
+
+# write to CSV
+def write_customers_csv(final_customers):
+    df = pd.DataFrame(final_customers, columns=[
+        "customer_id", "full_name", "birth_date", "email", "city", "state", "registration_date", "status", "marketing_opt_in", "updated_at"
+    ])
+
+    output_path = Path("data/raw/customers.csv")
+
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+    df.to_csv(output_path, sep=",",  header=True, index=False, encoding="utf-8")
    
 # ids selection
 def select_ids(available_ids, count):
@@ -1045,6 +1059,30 @@ def validate_invalid_customer_id_records(invalid_customer_records):
 def validate_final_dataset(final_customers):
     assert len(final_customers) == TOTAL_CUSTOMERS + NEWER_DUPLICATE_COUNT + EXACT_DUPLICATE_COUNT + INVALID_CUSTOMER_ID_COUNT
 
+def validate_written_customers_csv():
+    output_path = Path("data/raw/customers.csv")
+
+    assert output_path.exists(), (f"File not found: {output_path}")
+
+    df = pd.read_csv(output_path)
+
+    assert len(df.index) == TOTAL_CUSTOMERS + NEWER_DUPLICATE_COUNT + EXACT_DUPLICATE_COUNT + INVALID_CUSTOMER_ID_COUNT
+
+    expected_columns = [
+        "customer_id",
+        "full_name",
+        "birth_date",
+        "email",
+        "city",
+        "state",
+        "registration_date",
+        "status",
+        "marketing_opt_in",
+        "updated_at",
+    ]
+
+    assert list(df.columns) == expected_columns
+
 # orchestration
 def main():
     customers = generate_base_customers()
@@ -1108,6 +1146,12 @@ def main():
     final_customers = build_final_customer_dataset(customers, newer_duplicates, exact_duplicates, invalid_customer_records)
 
     validate_final_dataset(final_customers)
+
+    random.shuffle(final_customers)
+
+    write_customers_csv(final_customers)
+
+    validate_written_customers_csv()
 
 if __name__ == "__main__":
     main()
