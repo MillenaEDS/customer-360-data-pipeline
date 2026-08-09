@@ -407,6 +407,12 @@ def create_invalid_customer_id_records():
         invalid_customer_records.append(customer)
 
     return invalid_customer_records
+
+# final dataset generation
+def build_final_customer_dataset(customers, newer_duplicates, exact_duplicates, invalid_customer_records):
+    final_customers = customers + newer_duplicates + exact_duplicates + invalid_customer_records
+
+    return final_customers
    
 # ids selection
 def select_ids(available_ids, count):
@@ -1036,6 +1042,9 @@ def validate_invalid_customer_id_records(invalid_customer_records):
 
     assert invalid_char_count == INVALID_CHAR_ID_COUNT, (f"Expected {INVALID_CHAR_ID_COUNT} invalid character IDs, got {invalid_char_count}")
 
+def validate_final_dataset(final_customers):
+    assert len(final_customers) == TOTAL_CUSTOMERS + NEWER_DUPLICATE_COUNT + EXACT_DUPLICATE_COUNT + INVALID_CUSTOMER_ID_COUNT
+
 # orchestration
 def main():
     customers = generate_base_customers()
@@ -1095,6 +1104,10 @@ def main():
     invalid_customer_records = create_invalid_customer_id_records()
 
     validate_invalid_customer_id_records(invalid_customer_records)
+
+    final_customers = build_final_customer_dataset(customers, newer_duplicates, exact_duplicates, invalid_customer_records)
+
+    validate_final_dataset(final_customers)
 
 if __name__ == "__main__":
     main()
