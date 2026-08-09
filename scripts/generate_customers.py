@@ -101,17 +101,22 @@ EXPECTED_FIELDS = {
 
 NEWER_DUPLICATE_COUNT = 120
 EXACT_DUPLICATE_COUNT = 30
-
 FUTURE_BIRTH_DATE_COUNT = 15
 AGE_OVER_100_COUNT = 15
 FUTURE_REGISTRATION_DATE_COUNT = 20
 INVALID_STATUS_COUNT = 15
 MISSING_UPDATED_AT_COUNT = 10
-
 MISSING_NAME_COUNT = 35
 INVALID_EMAIL_COUNT = 45
 MISSING_EMAIL_COUNT = 25
 UNKNOWN_STATE_COUNT = 20
+
+INVALID_CUSTOMER_ID_COUNT = 50
+EMPTY_ID_COUNT = 15
+NUMERIC_ID_COUNT = 10
+CLIENT_PREFIX_ID_COUNT = 10
+WRONG_LENGTH_ID_COUNT = 10
+INVALID_CHAR_ID_COUNT = 5
 
 # Faker / random configuration
 fake = Faker("pt_BR")
@@ -252,6 +257,157 @@ def generate_base_customers():
 
     return customers
 
+# error customer generation
+def create_newer_duplicates(customers, duplicate_ids):
+    customers_by_id = {
+        customer["customer_id"]: customer
+        for customer in customers
+    }
+
+    duplicates = []
+
+    for customer_id in duplicate_ids:
+        original = customers_by_id[customer_id]
+
+        duplicate = original.copy()
+
+        new_email = fake.email()
+
+        while new_email == original["email"]:
+            new_email = fake.email()
+
+        duplicate["email"] = new_email
+
+        reference_end = datetime.combine(
+            REFERENCE_DATE,
+            datetime.max.time()
+        ).replace(microsecond=0)
+
+        seconds_available = int((reference_end - original["updated_at"]).total_seconds())
+
+        duplicate["updated_at"] = (
+            original["updated_at"]
+            + timedelta(
+                seconds=random.randint(1, seconds_available)
+            )
+        )
+
+        duplicates.append(duplicate)
+
+    return duplicates
+
+def create_exact_duplicates(customers, duplicate_ids):
+    customers_by_id = {
+        customer["customer_id"]: customer
+        for customer in customers
+    }
+
+    duplicates = []
+
+    for customer_id in duplicate_ids:
+            original = customers_by_id[customer_id]
+    
+            duplicate = original.copy()
+
+            duplicates.append(duplicate)
+
+    return duplicates
+
+def inject_future_birth_dates(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["birth_date"] = REFERENCE_DATE + timedelta(days=random.randint(1, 365))
+
+    return customers
+
+def inject_age_over_100(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            age = random.randint(101, 110)
+            customer["birth_date"] = generate_birth_date(age)
+
+    return customers
+
+def inject_future_registration_dates(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["registration_date"] = REFERENCE_DATE + timedelta(days=random.randint(1, 365))
+
+    return customers
+
+def inject_invalid_status(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["status"] = "UNKNOWN"
+
+    return customers
+
+def inject_missing_updated_at(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["updated_at"] = None
+
+    return customers
+
+def inject_missing_names(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["full_name"] = None
+
+    return customers
+
+def inject_invalid_emails(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["email"] = customer["email"].split("@")[0] 
+
+    return customers
+
+
+def inject_missing_emails(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["email"] = None
+
+    return customers
+
+def inject_unknown_states(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            customer["state"] = "XX"
+
+    return customers
+
+def create_invalid_customer_id_records():
+    invalid_customer_records = []
+
+    for i in range(1, EMPTY_ID_COUNT + 1):
+        customer = generate_base_customer(i)
+        customer["customer_id"] = ""
+        invalid_customer_records.append(customer)
+
+    for i in range(1, NUMERIC_ID_COUNT + 1):
+        customer = generate_base_customer(i)
+        customer["customer_id"] = str(10000000 + i)
+        invalid_customer_records.append(customer)
+
+    for i in range(1, CLIENT_PREFIX_ID_COUNT + 1):
+        customer = generate_base_customer(i)
+        customer["customer_id"] = customer["customer_id"].replace("CUST", "CLIENT")
+        invalid_customer_records.append(customer)
+
+    for i in range(1, WRONG_LENGTH_ID_COUNT + 1):
+        customer = generate_base_customer(i)
+        customer["customer_id"] = f"CUST{i:04d}"
+        invalid_customer_records.append(customer)
+
+    for i in range(1, INVALID_CHAR_ID_COUNT + 1):
+        customer = generate_base_customer(i)
+        customer["customer_id"] = f"CUST{i:07d}@"
+        invalid_customer_records.append(customer)
+
+    return invalid_customer_records
+   
 # ids selection
 def select_ids(available_ids, count):
     selected_ids = set(
@@ -697,6 +853,189 @@ def validate_scenario_selection(scenario_ids):
         "Scenario IDs overlap"
     )
 
+# errors validation
+def validate_newer_duplicates(customers, duplicates, duplicate_ids):
+    duplicate_customer_ids = {
+        duplicate["customer_id"]
+        for duplicate in duplicates
+    }
+
+    customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+    }
+
+    customers_by_id = {
+    customer["customer_id"]: customer
+    for customer in customers
+    }
+
+    assert len(duplicates) == NEWER_DUPLICATE_COUNT
+
+    assert duplicate_customer_ids == set(duplicate_ids)
+
+    assert duplicate_customer_ids.issubset(customer_ids)
+
+    assert all(
+        duplicate["email"] != customers_by_id[duplicate["customer_id"]]["email"]
+        for duplicate in duplicates
+    )
+
+    assert all(
+        duplicate["updated_at"] > customers_by_id[duplicate["customer_id"]]["updated_at"]
+        for duplicate in duplicates
+    )
+
+    assert all(
+        duplicate["updated_at"].date() <= REFERENCE_DATE
+        for duplicate in duplicates
+    )
+
+def validate_exact_duplicates(customers, duplicates, duplicate_ids):
+    duplicate_customer_ids = {
+        duplicate["customer_id"]
+        for duplicate in duplicates
+    }
+
+    customers_by_id = {
+        customer["customer_id"]: customer
+        for customer in customers
+    }
+
+    assert len(duplicates) == EXACT_DUPLICATE_COUNT
+
+    assert duplicate_customer_ids == set(duplicate_ids)
+
+    assert all(
+        duplicate == customers_by_id[duplicate["customer_id"]]
+        for duplicate in duplicates
+    )
+
+def validate_future_birth_dates(customers, customer_ids):
+    future_birth_date_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["birth_date"] > REFERENCE_DATE
+    }
+
+    assert len(future_birth_date_customer_ids) == FUTURE_BIRTH_DATE_COUNT
+
+    assert future_birth_date_customer_ids == set(customer_ids)
+
+def validate_age_over_100(customers, customer_ids):
+    age_over_100_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if calculate_age(customer["birth_date"]) > 100
+    }
+
+    assert len(age_over_100_customer_ids) == AGE_OVER_100_COUNT
+
+    assert age_over_100_customer_ids == set(customer_ids)
+
+def validate_future_registration_dates(customers, customer_ids):
+    future_registration_date_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["registration_date"] > REFERENCE_DATE
+    }
+
+    assert len(future_registration_date_customer_ids) == FUTURE_REGISTRATION_DATE_COUNT
+
+    assert future_registration_date_customer_ids == set(customer_ids)
+
+def validate_invalid_status(customers, customer_ids):
+    invalid_status_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["status"] not in {"ACTIVE", "INACTIVE", "BLOCKED"}
+    }
+
+    assert len(invalid_status_customer_ids) == INVALID_STATUS_COUNT
+
+    assert invalid_status_customer_ids == set(customer_ids)
+
+def validate_missing_updated_at(customers, customer_ids):
+    missing_updated_at_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["updated_at"] is None
+    }
+
+    assert len(missing_updated_at_customer_ids) == MISSING_UPDATED_AT_COUNT
+
+    assert missing_updated_at_customer_ids == set(customer_ids)
+
+def validate_missing_names(customers, customer_ids):
+    missing_name_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["full_name"] is None
+    }
+
+    assert len(missing_name_customer_ids) == MISSING_NAME_COUNT
+
+    assert missing_name_customer_ids == set(customer_ids)
+
+def validate_invalid_emails(customers, customer_ids):
+    invalid_email_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["email"] is not None and "@" not in customer["email"]
+    }
+
+    assert len(invalid_email_customer_ids) == INVALID_EMAIL_COUNT
+
+    assert invalid_email_customer_ids == set(customer_ids)
+
+def validate_missing_emails(customers, customer_ids):
+    missing_email_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["email"] is None
+    }
+
+    assert len(missing_email_customer_ids) == MISSING_EMAIL_COUNT
+
+    assert missing_email_customer_ids == set(customer_ids)
+
+def validate_unknown_state(customers, customer_ids):
+    unknown_state_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["state"] not in CITIES_BY_STATE
+    }
+
+    assert len(unknown_state_customer_ids) == UNKNOWN_STATE_COUNT
+
+    assert unknown_state_customer_ids == set(customer_ids)
+
+def validate_invalid_customer_id_records(invalid_customer_records):
+    empty_count = sum(1 for customer in invalid_customer_records if customer["customer_id"] == "")
+
+    numeric_count = sum(1 for customer in invalid_customer_records if customer["customer_id"].isdigit())
+
+    client_prefix_count = sum(1 for customer in invalid_customer_records if customer["customer_id"].startswith("CLIENT"))
+
+    wrong_length_count = sum(1 for customer in invalid_customer_records if customer["customer_id"].startswith("CUST") and len(customer["customer_id"]) != 12)
+
+    invalid_char_count = sum(1 for customer in invalid_customer_records if customer["customer_id"].startswith("CUST")
+        and len(customer["customer_id"]) == 12
+        and not customer["customer_id"][4:].isdigit()
+    )
+
+    assert len(invalid_customer_records) == INVALID_CUSTOMER_ID_COUNT
+
+    assert empty_count == EMPTY_ID_COUNT, (f"Expected {EMPTY_ID_COUNT} empty IDs, got {empty_count}")
+
+    assert numeric_count == NUMERIC_ID_COUNT, (f"Expected {NUMERIC_ID_COUNT} numeric IDs, got {numeric_count}")
+
+    assert client_prefix_count == CLIENT_PREFIX_ID_COUNT, (f"Expected {CLIENT_PREFIX_ID_COUNT} CLIENT IDs, got {client_prefix_count}")
+
+    assert wrong_length_count == WRONG_LENGTH_ID_COUNT, (f"Expected {WRONG_LENGTH_ID_COUNT} wrong length IDs, got {wrong_length_count}")
+
+    assert invalid_char_count == INVALID_CHAR_ID_COUNT, (f"Expected {INVALID_CHAR_ID_COUNT} invalid character IDs, got {invalid_char_count}")
+
 # orchestration
 def main():
     customers = generate_base_customers()
@@ -708,6 +1047,54 @@ def main():
     scenario_ids = select_scenario_ids(customers)
 
     validate_scenario_selection(scenario_ids)
+
+    newer_duplicates = create_newer_duplicates(customers, scenario_ids["newer_duplicates"])
+
+    validate_newer_duplicates(customers, newer_duplicates, scenario_ids["newer_duplicates"])
+
+    exact_duplicates = create_exact_duplicates(customers, scenario_ids["exact_duplicates"])
+
+    validate_exact_duplicates(customers, exact_duplicates, scenario_ids["exact_duplicates"])
+
+    customers = inject_future_birth_dates(customers, scenario_ids["future_birth_date"])
+
+    validate_future_birth_dates(customers, scenario_ids["future_birth_date"])
+
+    customers = inject_age_over_100(customers, scenario_ids["age_over_100"])
+
+    validate_age_over_100(customers, scenario_ids["age_over_100"])
+
+    customers = inject_future_registration_dates(customers, scenario_ids["future_registration_date"])
+
+    validate_future_registration_dates(customers, scenario_ids["future_registration_date"])
+
+    customers = inject_invalid_status(customers, scenario_ids["invalid_status"])
+
+    validate_invalid_status(customers, scenario_ids["invalid_status"])
+
+    customers = inject_missing_updated_at(customers, scenario_ids["missing_updated_at"])
+
+    validate_missing_updated_at(customers, scenario_ids["missing_updated_at"])
+
+    customers = inject_missing_names(customers, scenario_ids["missing_name"])
+
+    validate_missing_names(customers, scenario_ids["missing_name"])
+
+    customers = inject_invalid_emails(customers, scenario_ids["invalid_email"])
+
+    validate_invalid_emails(customers, scenario_ids["invalid_email"])
+
+    customers = inject_missing_emails(customers, scenario_ids["missing_email"])
+
+    validate_missing_emails(customers, scenario_ids["missing_email"])
+
+    customers = inject_unknown_states(customers, scenario_ids["unknown_state"])
+
+    validate_unknown_state(customers, scenario_ids["unknown_state"])
+
+    invalid_customer_records = create_invalid_customer_id_records()
+
+    validate_invalid_customer_id_records(invalid_customer_records)
 
 if __name__ == "__main__":
     main()
