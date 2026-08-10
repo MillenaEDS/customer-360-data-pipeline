@@ -118,6 +118,10 @@ CLIENT_PREFIX_ID_COUNT = 10
 WRONG_LENGTH_ID_COUNT = 10
 INVALID_CHAR_ID_COUNT = 5
 
+STATE_VARIATION_COUNT = 300
+STATUS_VARIATION_COUNT = 250
+MARKETING_OPT_IN_VARIATION_COUNT = 200
+
 # Faker / random configuration
 fake = Faker("pt_BR")
 
@@ -266,7 +270,7 @@ def create_newer_duplicates(customers, duplicate_ids):
 
     duplicates = []
 
-    for customer_id in duplicate_ids:
+    for customer_id in sorted(duplicate_ids):
         original = customers_by_id[customer_id]
 
         duplicate = original.copy()
@@ -304,7 +308,7 @@ def create_exact_duplicates(customers, duplicate_ids):
 
     duplicates = []
 
-    for customer_id in duplicate_ids:
+    for customer_id in sorted(duplicate_ids):
             original = customers_by_id[customer_id]
     
             duplicate = original.copy()
@@ -408,6 +412,56 @@ def create_invalid_customer_id_records():
 
     return invalid_customer_records
 
+def inject_state_variations(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            if customer["state"] == "SP":
+                customer["state"] = "São Paulo"
+            elif customer["state"] == "MG":
+                customer["state"] = "minas gerais"
+            elif customer["state"] == "RJ":
+                customer["state"] = "Rio de Janeiro"
+            elif customer["state"] == "PR":
+                customer["state"] = "paraná"
+            elif customer["state"] == "RS":
+                customer["state"] = "Rio Grande do Sul"
+            elif customer["state"] == "BA":
+                customer["state"] = "bahia"
+            elif customer["state"] == "SC":
+                customer["state"] = "Santa Catarina"
+            elif customer["state"] == "PE":
+                customer["state"] = "pernambuco"
+            elif customer["state"] == "GO":
+                customer["state"] = "Goias"
+            elif customer["state"] == "CE":
+                customer["state"] = "ceará"
+            elif customer["state"] == "ES":
+                customer["state"] = "Espirito Santo"
+            
+    return customers
+
+def inject_status_variations(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            if customer["status"] == "ACTIVE":
+                customer["status"] = "active"
+            elif customer["status"] == "INACTIVE":
+                customer["status"] = "Inactive"
+            elif customer["status"] == "BLOCKED":
+                customer["status"] = "blocked"
+            
+    return customers
+
+def inject_marketing_opt_in_variations(customers, customer_ids):
+    for customer in customers:
+        if customer["customer_id"] in customer_ids:
+            if customer["marketing_opt_in"] == True:
+                customer["marketing_opt_in"] = "yes"
+            elif customer["marketing_opt_in"] == False:
+                customer["marketing_opt_in"] = "no"
+
+    return customers
+
 # final dataset generation
 def build_final_customer_dataset(customers, newer_duplicates, exact_duplicates, invalid_customer_records):
     final_customers = customers + newer_duplicates + exact_duplicates + invalid_customer_records
@@ -504,6 +558,21 @@ def select_scenario_ids(customers):
         UNKNOWN_STATE_COUNT
     )
 
+    state_variation_ids, available_ids = select_ids(
+        available_ids,
+        STATE_VARIATION_COUNT
+    )
+
+    status_variation_ids, available_ids = select_ids(
+        available_ids,
+        STATUS_VARIATION_COUNT
+    )
+
+    marketing_opt_in_variation_ids, available_ids = select_ids(
+        available_ids,
+        MARKETING_OPT_IN_VARIATION_COUNT
+    )
+
     return {
         "newer_duplicates": newer_duplicate_ids,
         "exact_duplicates": exact_duplicate_ids,
@@ -516,6 +585,9 @@ def select_scenario_ids(customers):
         "invalid_email": invalid_email_ids,
         "missing_email": missing_email_ids,
         "unknown_state": unknown_state_ids,
+        "state_variation": state_variation_ids,
+        "status_variation": status_variation_ids,
+        "marketing_opt_in_variation": marketing_opt_in_variation_ids,
     }
 
 # validation helpers
@@ -855,6 +927,9 @@ def validate_scenario_selection(scenario_ids):
         "invalid_email": INVALID_EMAIL_COUNT,
         "missing_email": MISSING_EMAIL_COUNT,
         "unknown_state": UNKNOWN_STATE_COUNT,
+        "state_variation": STATE_VARIATION_COUNT,
+        "status_variation": STATUS_VARIATION_COUNT,
+        "marketing_opt_in_variation": MARKETING_OPT_IN_VARIATION_COUNT,
     }
 
     for scenario, expected_count in expected_counts.items():
@@ -1030,6 +1105,64 @@ def validate_unknown_state(customers, customer_ids):
 
     assert unknown_state_customer_ids == set(customer_ids)
 
+def validate_state_variations(customers, customer_ids):
+    state_variations = {
+        "São Paulo",
+        "minas gerais",
+        "Rio de Janeiro",
+        "paraná",
+        "Rio Grande do Sul",
+        "bahia",
+        "Santa Catarina",
+        "pernambuco",
+        "Goias",
+        "ceará",
+        "Espirito Santo"
+    }
+
+    state_variation_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["state"] in state_variations
+    }
+
+    assert len(state_variation_customer_ids) == STATE_VARIATION_COUNT
+
+    assert state_variation_customer_ids == set(customer_ids)
+
+def validate_status_variations(customers, customer_ids):
+    status_variations = {
+        "active",
+        "Inactive",
+        "blocked"
+    }
+
+    status_variation_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["status"] in status_variations
+    }
+
+    assert len(status_variation_customer_ids) == STATUS_VARIATION_COUNT
+
+    assert status_variation_customer_ids == set(customer_ids)
+
+def validate_marketing_opt_in_variations(customers, customer_ids):
+    marketing_opt_in_variations = {
+        "yes",
+        "no"
+    }
+
+    marketing_opt_in_variation_customer_ids = {
+        customer["customer_id"]
+        for customer in customers
+        if customer["marketing_opt_in"] in marketing_opt_in_variations
+    }
+
+    assert len(marketing_opt_in_variation_customer_ids) == MARKETING_OPT_IN_VARIATION_COUNT
+
+    assert marketing_opt_in_variation_customer_ids == set(customer_ids)
+
 def validate_invalid_customer_id_records(invalid_customer_records):
     empty_count = sum(1 for customer in invalid_customer_records if customer["customer_id"] == "")
 
@@ -1142,6 +1275,18 @@ def main():
     invalid_customer_records = create_invalid_customer_id_records()
 
     validate_invalid_customer_id_records(invalid_customer_records)
+
+    customers = inject_state_variations(customers, scenario_ids["state_variation"])
+
+    validate_state_variations(customers, scenario_ids["state_variation"])
+
+    customers = inject_status_variations(customers, scenario_ids["status_variation"])
+
+    validate_status_variations(customers, scenario_ids["status_variation"])
+
+    customers = inject_marketing_opt_in_variations(customers, scenario_ids["marketing_opt_in_variation"])
+
+    validate_marketing_opt_in_variations(customers, scenario_ids["marketing_opt_in_variation"])
 
     final_customers = build_final_customer_dataset(customers, newer_duplicates, exact_duplicates, invalid_customer_records)
 
