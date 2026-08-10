@@ -3,3 +3,4 @@ pyarrow
 duckdb
 pytest
 pyyaml
+faker
